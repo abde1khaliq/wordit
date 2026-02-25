@@ -1,1 +1,3 @@
 wordit/
+*.pdf
+.gradio/

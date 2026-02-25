@@ -17,7 +17,10 @@ MODEL_NAME = 'deepseek-ai/DeepSeek-OCR-2'
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
 model = AutoModel.from_pretrained(MODEL_NAME, _attn_implementation='flash_attention_2',
                                   torch_dtype=torch.bfloat16, trust_remote_code=True, use_safetensors=True)
-model = model.eval().cuda()
+
+model = model.eval()
+if torch.cuda.is_available():
+    model = model.to("cuda")
 
 BASE_SIZE = 1024
 IMAGE_SIZE = 768
@@ -257,11 +260,7 @@ def update_page_selector(file_path):
 
 with gr.Blocks(title="DeepSeek-OCR-2") as demo:
     gr.Markdown("""
-    # 🚀 DeepSeek-OCR-2 Demo
-    **Convert documents to markdown, extract text, parse figures, and locate specific content with bounding boxes.** 
-    **Model uses DeepEncoder v2 and achieves 91.09% on OmniDocBench (+3.73% over v1).** 
-    
-    **Hope this tool was helpful! If so, a quick like ❤️ would mean a lot :)**
+    # Sharkawy's wordifier is finally here
     """)
 
     with gr.Row():
@@ -293,34 +292,6 @@ with gr.Blocks(title="DeepSeek-OCR-2") as demo:
                     raw_out = gr.Textbox(lines=20, buttons=[
                                          "copy"], show_label=False)
 
-    gr.Examples(
-        examples=[
-            ["examples/ocr.jpg", "📋 Markdown", ""],
-            ["examples/reachy-mini.jpg", "📍 Locate", "Robot"]
-        ],
-        inputs=[input_img, task, prompt],
-        cache_examples=False
-    )
-
-    with gr.Accordion("ℹ️ Info", open=False):
-        gr.Markdown("""
-        ### Configuration
-        1024 base + 768 patches with dynamic cropping (2-6 patches). 144 tokens per patch + 256 base tokens.
-        
-        ### Tasks
-        - **Markdown**: Convert document to structured markdown with layout detection (grounding ✅)
-        - **Free OCR**: Simple text extraction without layout
-        - **Locate**: Find and highlight specific text/elements in image (grounding ✅)
-        - **Describe**: General image description
-        - **Custom**: Your own prompt
-        
-        ### Special Tokens
-        - `<image>` - Placeholder where visual tokens are inserted
-        - `<|grounding|>` - Enables layout detection with bounding boxes
-        - `<|ref|>text<|/ref|>` - Reference text to locate in the image
-    
-        """)
-
     file_in.change(load_image, [file_in, page_selector], [input_img])
     file_in.change(update_page_selector, [file_in], [page_selector])
     page_selector.change(load_image, [file_in, page_selector], [input_img])
@@ -339,4 +310,4 @@ with gr.Blocks(title="DeepSeek-OCR-2") as demo:
     submit_event.then(select_boxes, [task], [tabs])
 
 if __name__ == "__main__":
-    demo.queue(max_size=20).launch(theme=gr.themes.Soft())
+    demo.queue(max_size=20).launch(theme=gr.themes.Soft(), share=True)
