@@ -15,12 +15,13 @@ from io import StringIO, BytesIO
 MODEL_NAME = 'deepseek-ai/DeepSeek-OCR-2'
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
-model = AutoModel.from_pretrained(MODEL_NAME, _attn_implementation='flash_attention_2',
-                                  torch_dtype=torch.bfloat16, trust_remote_code=True, use_safetensors=True)
 
-model = model.eval()
+model = AutoModel.from_pretrained(
+    MODEL_NAME, torch_dtype=torch.bfloat16, trust_remote_code=True, use_safetensors=True).eval()
 if torch.cuda.is_available():
     model = model.to("cuda")
+else:
+    print("⚠️ CUDA not available, running on CPU")
 
 BASE_SIZE = 1024
 IMAGE_SIZE = 768
