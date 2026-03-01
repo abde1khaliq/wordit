@@ -12,6 +12,7 @@ import numpy as np
 import base64
 from io import StringIO, BytesIO
 
+
 MODEL_NAME = 'deepseek-ai/DeepSeek-OCR-2'
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
@@ -61,12 +62,18 @@ def draw_bounding_boxes(image, refs, extract_images=False):
                 50, 255), np.random.randint(50, 255))
 
         color = color_map[label]
-        coords = eval(ref[2])
+        coords_str = re.sub(r'[^\d,.\[\]\s\-]', '', ref[2])
+        try:
+            coords = eval(coords_str)
+        except:
+            continue
         color_a = color + (60,)
 
         for box in coords:
             x1, y1, x2, y2 = int(
                 box[0]/999*img_w), int(box[1]/999*img_h), int(box[2]/999*img_w), int(box[3]/999*img_h)
+            x1, x2 = min(x1, x2), max(x1, x2)
+            y1, y2 = min(y1, y2), max(y1, y2)
 
             if extract_images and label == 'image':
                 crops.append(image.crop((x1, y1, x2, y2)))
@@ -157,7 +164,7 @@ def process_image(image, task, custom_prompt):
         base_size=BASE_SIZE,
         image_size=IMAGE_SIZE,
         crop_mode=CROP_MODE,
-        save_results=False
+        save_results=False,
     )
 
     debug_filters = ['PATCHES', '====', 'BASE:',
@@ -188,127 +195,127 @@ def process_image(image, task, custom_prompt):
     return cleaned, markdown, result, img_out, crops
 
 
-def process_pdf(path, task, custom_prompt, page_num):
-    doc = fitz.open(path)
-    total_pages = len(doc)
-    if page_num < 1 or page_num > total_pages:
-        doc.close()
-        return f"Invalid page number. PDF has {total_pages} pages.", "", "", None, []
-    page = doc.load_page(page_num - 1)
-    pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
-    img = Image.open(BytesIO(pix.tobytes("png")))
-    doc.close()
+# def process_pdf(path, task, custom_prompt, page_num):
+#     doc = fitz.open(path)
+#     total_pages = len(doc)
+#     if page_num < 1 or page_num > total_pages:
+#         doc.close()
+#         return f"Invalid page number. PDF has {total_pages} pages.", "", "", None, []
+#     page = doc.load_page(page_num - 1)
+#     pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
+#     img = Image.open(BytesIO(pix.tobytes("png")))
+#     doc.close()
 
-    return process_image(img, task, custom_prompt)
-
-
-def process_file(path, task, custom_prompt, page_num):
-    if not path:
-        return "Error: Upload a file", "", "", None, []
-    if path.lower().endswith('.pdf'):
-        return process_pdf(path, task, custom_prompt, page_num)
-    else:
-        return process_image(Image.open(path), task, custom_prompt)
+#     return process_image(img, task, custom_prompt)
 
 
-def toggle_prompt(task):
-    if task == "✏️ Custom":
-        return gr.update(visible=True, label="Custom Prompt", placeholder="Add <|grounding|> for bounding boxes")
-    elif task == "📍 Locate":
-        return gr.update(visible=True, label="Text to Locate", placeholder="Enter text to locate")
-    return gr.update(visible=False)
+# def process_file(path, task, custom_prompt, page_num):
+#     if not path:
+#         return "Error: Upload a file", "", "", None, []
+#     if path.lower().endswith('.pdf'):
+#         return process_pdf(path, task, custom_prompt, page_num)
+#     else:
+#         return process_image(Image.open(path), task, custom_prompt)
 
 
-def select_boxes(task):
-    if task == "📍 Locate":
-        return gr.update(selected="tab_boxes")
-    return gr.update()
+# def toggle_prompt(task):
+#     if task == "✏️ Custom":
+#         return gr.update(visible=True, label="Custom Prompt", placeholder="Add <|grounding|> for bounding boxes")
+#     elif task == "📍 Locate":
+#         return gr.update(visible=True, label="Text to Locate", placeholder="Enter text to locate")
+#     return gr.update(visible=False)
 
 
-def get_pdf_page_count(file_path):
-    if not file_path or not file_path.lower().endswith('.pdf'):
-        return 1
-    doc = fitz.open(file_path)
-    count = len(doc)
-    doc.close()
-    return count
+# def select_boxes(task):
+#     if task == "📍 Locate":
+#         return gr.update(selected="tab_boxes")
+#     return gr.update()
 
 
-def load_image(file_path, page_num=1):
-    if not file_path:
-        return None
-    if file_path.lower().endswith('.pdf'):
-        doc = fitz.open(file_path)
-        page_idx = max(0, min(int(page_num) - 1, len(doc) - 1))
-        page = doc.load_page(page_idx)
-        pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
-        img = Image.open(BytesIO(pix.tobytes("png")))
-        doc.close()
-        return img
-    else:
-        return Image.open(file_path)
+# def get_pdf_page_count(file_path):
+#     if not file_path or not file_path.lower().endswith('.pdf'):
+#         return 1
+#     doc = fitz.open(file_path)
+#     count = len(doc)
+#     doc.close()
+#     return count
 
 
-def update_page_selector(file_path):
-    if not file_path:
-        return gr.update(visible=False)
-    if file_path.lower().endswith('.pdf'):
-        page_count = get_pdf_page_count(file_path)
-        return gr.update(visible=True, maximum=page_count, value=1, minimum=1,
-                         label=f"Select Page (1-{page_count})")
-    return gr.update(visible=False)
+# def load_image(file_path, page_num=1):
+#     if not file_path:
+#         return None
+#     if file_path.lower().endswith('.pdf'):
+#         doc = fitz.open(file_path)
+#         page_idx = max(0, min(int(page_num) - 1, len(doc) - 1))
+#         page = doc.load_page(page_idx)
+#         pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
+#         img = Image.open(BytesIO(pix.tobytes("png")))
+#         doc.close()
+#         return img
+#     else:
+#         return Image.open(file_path)
 
 
-with gr.Blocks(title="DeepSeek-OCR-2") as demo:
-    gr.Markdown("""
-    # Sharkawy's wordifier is finally here
-    """)
+# def update_page_selector(file_path):
+#     if not file_path:
+#         return gr.update(visible=False)
+#     if file_path.lower().endswith('.pdf'):
+#         page_count = get_pdf_page_count(file_path)
+#         return gr.update(visible=True, maximum=page_count, value=1, minimum=1,
+#                          label=f"Select Page (1-{page_count})")
+#     return gr.update(visible=False)
 
-    with gr.Row():
-        with gr.Column(scale=1):
-            file_in = gr.File(label="Upload Image or PDF", file_types=[
-                              "image", ".pdf"], type="filepath")
-            input_img = gr.Image(label="Input Image", type="pil", height=300)
-            page_selector = gr.Number(
-                label="Select Page", value=1, minimum=1, step=1, visible=False)
-            task = gr.Dropdown(list(TASK_PROMPTS.keys()),
-                               value="📋 Markdown", label="Task")
-            prompt = gr.Textbox(label="Prompt", lines=2, visible=False)
-            btn = gr.Button("Extract", variant="primary", size="lg")
 
-        with gr.Column(scale=2):
-            with gr.Tabs() as tabs:
-                with gr.Tab("Text", id="tab_text"):
-                    text_out = gr.Textbox(
-                        lines=20, buttons=["copy"], show_label=False)
-                with gr.Tab("Markdown Preview", id="tab_markdown"):
-                    md_out = gr.Markdown("")
-                with gr.Tab("Boxes", id="tab_boxes"):
-                    img_out = gr.Image(
-                        type="pil", height=500, show_label=False)
-                with gr.Tab("Cropped Images", id="tab_crops"):
-                    gallery = gr.Gallery(
-                        show_label=False, columns=3, height=400)
-                with gr.Tab("Raw Text", id="tab_raw"):
-                    raw_out = gr.Textbox(lines=20, buttons=[
-                                         "copy"], show_label=False)
+# with gr.Blocks(title="DeepSeek-OCR-2") as demo:
+#     gr.Markdown("""
+#     # Sharkawy's wordifier is finally here
+#     """)
 
-    file_in.change(load_image, [file_in, page_selector], [input_img])
-    file_in.change(update_page_selector, [file_in], [page_selector])
-    page_selector.change(load_image, [file_in, page_selector], [input_img])
-    task.change(toggle_prompt, [task], [prompt])
-    task.change(select_boxes, [task], [tabs])
+#     with gr.Row():
+#         with gr.Column(scale=1):
+#             file_in = gr.File(label="Upload Image or PDF", file_types=[
+#                               "image", ".pdf"], type="filepath")
+#             input_img = gr.Image(label="Input Image", type="pil", height=300)
+#             page_selector = gr.Number(
+#                 label="Select Page", value=1, minimum=1, step=1, visible=False)
+#             task = gr.Dropdown(list(TASK_PROMPTS.keys()),
+#                                value="📋 Markdown", label="Task")
+#             prompt = gr.Textbox(label="Prompt", lines=2, visible=False)
+#             btn = gr.Button("Extract", variant="primary", size="lg")
 
-    def run(image, file_path, task, custom_prompt, page_num):
-        if file_path:
-            return process_file(file_path, task, custom_prompt, int(page_num))
-        if image is not None:
-            return process_image(image, task, custom_prompt)
-        return "Error: Upload a file or image", "", "", None, []
+#         with gr.Column(scale=2):
+#             with gr.Tabs() as tabs:
+#                 with gr.Tab("Text", id="tab_text"):
+#                     text_out = gr.Textbox(
+#                         lines=20, buttons=["copy"], show_label=False)
+#                 with gr.Tab("Markdown Preview", id="tab_markdown"):
+#                     md_out = gr.Markdown("")
+#                 with gr.Tab("Boxes", id="tab_boxes"):
+#                     img_out = gr.Image(
+#                         type="pil", height=500, show_label=False)
+#                 with gr.Tab("Cropped Images", id="tab_crops"):
+#                     gallery = gr.Gallery(
+#                         show_label=False, columns=3, height=400)
+#                 with gr.Tab("Raw Text", id="tab_raw"):
+#                     raw_out = gr.Textbox(lines=20, buttons=[
+#                                          "copy"], show_label=False)
 
-    submit_event = btn.click(run, [input_img, file_in, task, prompt, page_selector],
-                             [text_out, md_out, raw_out, img_out, gallery])
-    submit_event.then(select_boxes, [task], [tabs])
+#     file_in.change(load_image, [file_in, page_selector], [input_img])
+#     file_in.change(update_page_selector, [file_in], [page_selector])
+#     page_selector.change(load_image, [file_in, page_selector], [input_img])
+#     task.change(toggle_prompt, [task], [prompt])
+#     task.change(select_boxes, [task], [tabs])
 
-if __name__ == "__main__":
-    demo.queue(max_size=20).launch(theme=gr.themes.Soft(), share=True)
+#     def run(image, file_path, task, custom_prompt, page_num):
+#         if file_path:
+#             return process_file(file_path, task, custom_prompt, int(page_num))
+#         if image is not None:
+#             return process_image(image, task, custom_prompt)
+#         return "Error: Upload a file or image", "", "", None, []
+
+#     submit_event = btn.click(run, [input_img, file_in, task, prompt, page_selector],
+#                              [text_out, md_out, raw_out, img_out, gallery])
+#     submit_event.then(select_boxes, [task], [tabs])
+
+# if __name__ == "__main__":
+#     demo.queue(max_size=20).launch(theme=gr.themes.Soft(), share=True)
