@@ -1,3 +1,4 @@
 wordit/
 *.pdf
 .gradio/
+__pycache__/
