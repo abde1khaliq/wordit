@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
 transformers.logging.set_verbosity_error()
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
-doc = pymupdf.open("moaser.pdf")
+doc = pymupdf.open("[Enter ur pdf file location here].pdf")
 word_doc = Document()
 word_doc.add_heading("OCR Output", 0)
 
